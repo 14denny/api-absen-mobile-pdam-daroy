@@ -31,7 +31,7 @@ class JWT
 		$token = JWT::decode($token, $CI->config->item('jwt_key'));
 		if (
 			$token != false && isset($token->timestamp)
-			&& (strtotime(date('Y-m-d H:i:s')) - $token->timestamp < ($CI->config->item('token_timeout') * 60))
+			// && (strtotime(date('Y-m-d H:i:s')) - $token->timestamp < ($CI->config->item('token_timeout') * 60))
 		) {
 			return $token;
 		}
