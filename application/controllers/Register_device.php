@@ -171,7 +171,7 @@ class Register_device extends CI_Controller
 
 
         //daftarkan perangkat dan NIK
-        $insert = $this->verify_model->insert_device(strtoupper($appid), $pegawai->id, $version);
+        $insert = $this->verify_model->insert_device($appid, $pegawai->id, $version);
 
         if ($insert) {
             $res = [
@@ -226,7 +226,7 @@ class Register_device extends CI_Controller
             exit();
         }
 
-        $data = $this->main_model->select('registered_device r', '*, (select nik from pegawai p where p.id=r.id_pegawai)', ['appid' => $appid, 'version' => $version]);
+        $data = $this->main_model->select('registered_device r', '*, (select nik from pegawai p where p.id=r.id_pegawai) as nik', ['appid' => $appid, 'version' => $version]);
         if ($data) {
             $res = [
                 'appid' => $appid,

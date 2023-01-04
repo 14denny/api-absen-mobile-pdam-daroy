@@ -77,21 +77,21 @@ class Login_web extends CI_Controller
         }
     }
 
-    public function verify_device($nip)
+    public function verify_device($nik)
     {
         $headers = $this->input->request_headers();
         if (array_key_exists('x-appid', $headers)) {
             $appid = $this->db->escape_str($headers['x-appid']);
             $version = array_key_exists('x-version', $headers) ? $this->db->escape_str($headers['x-version']) : 2;
             $version = $version ?: 1;
-            if (!$this->verify_model->verify_address($appid, $nip, $version)) {
+            if (!$this->verify_model->verify_address($appid, $nik, $version)) {
                 $response = [
                     'response' => [
-                        'message' => 'Perangkat belum terdaftar atau menggunakan NIP yang berbeda!'
+                        'message' => 'Perangkat belum terdaftar atau menggunakan NIK yang berbeda!'
                     ],
                     'metadata' => [
                         'code' => 403,
-                        'message' => 'Perangkat belum terdaftar atau menggunakan NIP yang berbeda!'
+                        'message' => 'Perangkat belum terdaftar atau menggunakan NIK yang berbeda!'
                     ]
                 ];
                 $this->response($response, 200);

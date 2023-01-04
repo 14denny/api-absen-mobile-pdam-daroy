@@ -77,21 +77,21 @@ class Login extends CI_Controller
         }
     }
 
-    public function verify_device($nip)
+    public function verify_device($nik)
     {
         $headers = $this->input->request_headers();
         if (array_key_exists('x-appid', $headers)) {
             $appid = $this->db->escape_str($headers['x-appid']);
-            $version = array_key_exists('x-version', $headers) ? $this->db->escape_str($headers['x-version']) : 2;
+            $version = array_key_exists('x-version', $headers) ? $this->db->escape_str($headers['x-version']) : 1;
             $version = $version ?: 1;
-            if (!$this->verify_model->verify_address($appid, $nip, $version)) {
+            if (!$this->verify_model->verify_address($appid, $nik, $version)) {
                 $response = [
                     'response' => [
-                        'message' => 'Perangkat belum terdaftar atau menggunakan NIP yang berbeda!'
+                        'message' => 'Perangkat belum terdaftar atau menggunakan NIK yang berbeda!'
                     ],
                     'metadata' => [
                         'code' => 403,
-                        'message' => 'Perangkat belum terdaftar atau menggunakan NIP yang berbeda!'
+                        'message' => 'Perangkat belum terdaftar atau menggunakan NIK yang berbeda!'
                     ]
                 ];
                 $this->response($response, 200);
@@ -116,14 +116,14 @@ class Login extends CI_Controller
     {
         $this->verify_request();
 
-        $nip = $this->db->escape_str($this->post('nip'));
-        $password = $this->db->escape_str($this->post('password'));
+        $nik = $this->post('nik', true);
+        $password = $this->post('password', true);
 
-        if ($nip == null || $nip == "") {
+        if ($nik == null || $nik == "") {
             $response = [
                 'response' => null,
                 'metadata' => [
-                    'message' => 'Parameter \'nip\' tidak boleh kosong',
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
                     'code' => 500
                 ]
             ];
@@ -131,13 +131,13 @@ class Login extends CI_Controller
             exit();
         }
 
-        $this->verify_device($nip);
+        $this->verify_device($nik);
 
         if ($password == null || $password == "") {
             $response = [
                 'response' => null,
                 'metadata' => [
-                    'message' => 'Parameter \'nip\' tidak boleh kosong',
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
                     'code' => 500
                 ]
             ];
@@ -145,12 +145,38 @@ class Login extends CI_Controller
             exit();
         }
 
-        $result = $this->login_model->login_pegawai($nip, $password);
-        if ($result) {
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK tidak dapat ditemukan',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if (!$pegawai->password) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Anda belum mendaftarkan akun, harap buat akun terlebih dahulu',
+                    'code' => 404
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+
+        if (password_verify($password, $pegawai->password)) {
+            $data_pegawai = $this->login_model->data_pegawai($nik);
             $res = [
                 'status' => true,
                 'message' => 'Login berhasil',
-                'data_pegawai' => $result
+                'data_pegawai' => $data_pegawai
             ];
             $meta = [
                 'message' => 'Login berhasil',
@@ -159,13 +185,302 @@ class Login extends CI_Controller
         } else {
             $res = [
                 'status' => false,
-                'message' => "NIP atau password SIMPEG salah!"
+                'message' => "NIK atau password salah!"
             ];
             $meta = [
-                'message' => 'NIP atau password SIMPEG salah',
+                'message' => 'NIK atau password salah',
                 'code' => 500
             ];
         }
+
+        $response = [
+            'response' => $res,
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
+    public function reset_password_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->post('nik', true);
+        $email = $this->post('email', true);
+
+        if ($email == null || $email == "") {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Parameter \'email\' tidak boleh kosong',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $this->verify_device($nik);
+
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK pegawai tidak dapat ditemukan',
+                    'nik' => $nik,
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek nik yang dikirm sama dengan nik yang terdaftar dengan appid
+        $headers = $this->input->request_headers();
+        $version = $headers['x-version'];
+        $appid = $headers['x-appid'];
+        $registered = $this->main_model->select('registered_device r', '*, (select nik from pegawai p where p.id=r.id_pegawai) as nik', ['appid' => $appid, 'version' => $version]);
+        if (!$registered) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Perangkat belum terdaftar',
+                    'code' => 403
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($registered->nik != $nik) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK yang dikirimkan tidak sama dengan NIK yang didaftarkan untuk perangkat ini',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($pegawai->email != $email) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Email yang dikirimkan tidak sama dengan email yang didaftarkan untuk pegawai ' . $pegawai->nama,
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $token = $this->login_model->create_token($pegawai->id);
+        if (!$token) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Gagal membuat token reset password',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $status_kirim_email = $this->login_model->send_email($pegawai, $token);
+        if (!$status_kirim_email['status']) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Gagal. ' . $status_kirim_email['msg'],
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $res = [
+            'status' => true,
+            'message' => 'Silahkan cek email untuk melihat token reset password',
+        ];
+        $meta = [
+            'message' => 'Silahkan cek email untuk melihat token reset password',
+            'code' => 200
+        ];
+
+        $response = [
+            'response' => $res,
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
+    public function submit_reset_password_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->post('nik', true);
+        $token = $this->post('token', true);
+        $pass = $this->post('pass', true);
+        $pass_conf = $this->post('pass_conf', true);
+
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Parameter \'token\' tidak boleh kosong',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($token == null || $token == "") {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Parameter \'token\' tidak boleh kosong',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($pass == null || $pass == "") {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Parameter \'pass\' tidak boleh kosong',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($pass_conf == null || $pass_conf == "") {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Parameter \'pass_conf\' tidak boleh kosong',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($pass_conf != $pass) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Password harus sama dengan konfirmasi password',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $this->verify_device($nik);
+
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK pegawai tidak dapat ditemukan',
+                    'nik' => $nik,
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek nik yang dikirm sama dengan nik yang terdaftar dengan appid
+        $headers = $this->input->request_headers();
+        $version = $headers['x-version'];
+        $appid = $headers['x-appid'];
+        $registered = $this->main_model->select('registered_device r', '*, (select nik from pegawai p where p.id=r.id_pegawai) as nik', ['appid' => $appid, 'version' => $version]);
+        if (!$registered) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Perangkat belum terdaftar',
+                    'code' => 403
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($registered->nik != $nik) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK yang dikirimkan tidak sama dengan NIK yang didaftarkan untuk perangkat ini',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek token sesuai
+        $get_token = $this->main_model->select('token_reset_password', '*', ['id_pegawai' => $pegawai->id, 'token' => $token]);
+        if (!$get_token) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Token tidak sesuai',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($get_token->valid_until < time()) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Token sudah kadaluarsa, harap kirim email kembali',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $status_reset_pass = $this->main_model->update('pegawai', ['id' => $pegawai->id], ['password' => password_hash($pass, PASSWORD_BCRYPT)]);
+        if (!$status_reset_pass) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Gagal mereset password. Harap coba lagi',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $res = [
+            'status' => true,
+            'message' => 'Reset password berhasil. Silahkan login menggunakan password yang baru direset',
+        ];
+        $meta = [
+            'message' => 'Reset password berhasil. Silahkan login menggunakan password yang baru direset',
+            'code' => 200
+        ];
 
         $response = [
             'response' => $res,
