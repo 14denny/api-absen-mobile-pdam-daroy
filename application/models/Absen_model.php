@@ -3,10 +3,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Absen_model extends CI_Model
 {
-    function get_rekap_today($nip)
+    function get_rekap_today($id_pegawai)
     {
         $today = date('Y-m-d');
-        return $this->db->query("SELECT * from absen where nip='$nip' and tanggal='$today'")->row();
+        return $this->db->query("SELECT * from absen where id_pegawai='$id_pegawai' and tanggal='$today'")->row();
     }
 
     function check_pegawai_shift($nip)
@@ -290,9 +290,9 @@ class Absen_model extends CI_Model
         return in_array($nip, $doraemon);
     }
 
-    function get_lokasi_kerja_pegawai($nip)
+    function get_lokasi_kerja_pegawai($id_pegawai)
     {
-        return $this->db->where('nip', $nip)->get('lokasi_kerja_pegawai')->row();
+        return $this->db->where('id_pegawai', $id_pegawai)->get('lokasi_kerja_pegawai')->row();
     }
 
     function tendik_mipa($nip)

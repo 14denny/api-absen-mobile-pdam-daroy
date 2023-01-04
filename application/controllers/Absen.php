@@ -108,14 +108,14 @@ class Absen extends CI_Controller
     {
         $this->verify_request();
 
-        $nip = $this->db->escape_str($this->post('nip'));
-        if ($nip == null || $nip == "") {
+        $nik = $this->db->escape_str($this->post('nik'));
+        if ($nik == null || $nik == "") {
             $response = [
                 'response' => [
-                    'message' => 'Parameter \'nip\' tidak boleh kosong',
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
                 ],
                 'metadata' => [
-                    'message' => 'Parameter \'nip\' tidak boleh kosong',
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
                     'code' => 400
                 ]
             ];
@@ -123,7 +123,7 @@ class Absen extends CI_Controller
             exit();
         }
 
-        // $this->verify_device($nip);
+        $this->verify_device($nik);
 
         $tanggal = date('d-m-Y');
         $jam = date('H:i:s');
@@ -152,14 +152,14 @@ class Absen extends CI_Controller
     {
         $this->verify_request();
 
-        $nip = $this->db->escape_str($this->post('nip'));
-        if ($nip == null || $nip == "") {
+        $nik = $this->db->escape_str($this->post('nik'));
+        if ($nik == null || $nik == "") {
             $response = [
                 'response' => [
-                    'message' => 'Parameter \'nip\' tidak boleh kosong',
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
                 ],
                 'metadata' => [
-                    'message' => 'Parameter \'nip\' tidak boleh kosong',
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
                     'code' => 400
                 ]
             ];
@@ -167,74 +167,54 @@ class Absen extends CI_Controller
             exit();
         }
 
-        // $this->verify_device($nip);
+        $this->verify_device($nik);
 
-        $tanggal = date('Y-m-d');
+        //cek pegawai
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => [
+                    'message' => 'Data pegawai tidak ditemukan',
+                ],
+                'metadata' => [
+                    'message' => 'Data pegawai tidak ditemukan',
+                    'code' => 404
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
 
-        //check kalau yang absen adalah dosen yang sudah absen di simkuliah
-        // if ($this->absen_model->check_absen_dosen_mk($nip, $tanggal)) {
-
-        //     $res = [
-        //         'status' => true,
-        //         'jenis_absen' => 1,
-        //         'tanggal' => date('Y-m-d'),
-        //         'rekap' => [
-        //             'masuk' => 'MENGAJAR',
-        //             'pulang' => 'MENGAJAR',
-        //         ]
-        //     ];
-        //     $meta = [
-        //         'message' => 'Ok',
-        //         'code' => 200
-        //     ];
-        // } else {
-
-            $rekap_today = $this->absen_model->get_rekap_today($nip);
-            if ($rekap_today) {
-                //get lokasi kerja pegawai
-                $lokasi_kerja = $this->absen_model->get_lokasi_kerja_pegawai($nip);
-
-                // if($lokasi_kerja->jenis_pegawai == 1){ //basis lokasi
-                if ($lokasi_kerja && $lokasi_kerja->jenis_pegawai == 1) { //tanpa lokasi
-                    $hadir = !!($rekap_today->jam_masuk || $rekap_today->jam_pulang);
-
-                    $res = [
-                        'status' => true,
-                        'tanggal' => date('Y-m-d'),
-                        'rekap' => [
-                            'masuk' => $rekap_today->jam_masuk ?: ($hadir ? 'HADIR' : null),
-                            'pulang' => $rekap_today->jam_pulang ?: ($hadir ? 'HADIR' : null),
-                        ]
-                    ];
-                } else {
-                    $res = [
-                        'status' => true,
-                        'tanggal' => date('Y-m-d'),
-                        'rekap' => [
-                            'masuk' => $rekap_today->jam_masuk,
-                            'pulang' => $rekap_today->jam_pulang,
-                        ]
-                    ];
-                }
-                $meta = [
-                    'message' => 'Ok',
-                    'code' => 200
-                ];
-            } else {
-                $res = [
-                    'status' => true,
-                    'tanggal' => date('Y-m-d'),
-                    'rekap' => [
-                        'masuk' => null,
-                        'pulang' => null,
-                    ]
-                ];
-                $meta = [
-                    'message' => 'Ok',
-                    'code' => 200
-                ];
-            }
-        // }
+        $rekap_today = $this->absen_model->get_rekap_today($pegawai->id);
+        if ($rekap_today) {
+            $res = [
+                'status' => true,
+                'tanggal' => date('Y-m-d'),
+                'rekap' => [
+                    'masuk' => $rekap_today->jam_masuk ? date('H:i', strtotime($rekap_today->jam_masuk)) : null,
+                    'pulang' => $rekap_today->jam_pulang ? date('H:i', strtotime($rekap_today->jam_pulang)) : null,
+                    'needs_approval' => $rekap_today->needs_approval,
+                    'approved' => $rekap_today->approved
+                ]
+            ];
+            $meta = [
+                'message' => 'Ok',
+                'code' => 200
+            ];
+        } else {
+            $res = [
+                'status' => true,
+                'tanggal' => date('Y-m-d'),
+                'rekap' => [
+                    'masuk' => null,
+                    'pulang' => null,
+                ]
+            ];
+            $meta = [
+                'message' => 'Ok',
+                'code' => 200
+            ];
+        }
 
 
         $response = [
@@ -355,140 +335,125 @@ class Absen extends CI_Controller
         //     ];
         // } else {
 
-            $status = $this->absen_model->di_lokasi_kerja($nip, $lat, $lon);
+        $status = $this->absen_model->di_lokasi_kerja($nip, $lat, $lon);
 
-            // //lokasi hanya utk tendik FMIPA
-            // if($this->absen_model->tendik_mipa($nip)){
-            //     $response = [
-            //         'response' => [
-            //             'message' => 'Berdasarkan surat Dekan FMIPA No.753/UN11.1.8/KP.11.00/2022, maka kepada pegawai tendik di unit kerja Fakultas MIPA untuk melakukan absen pada mesin Finger di unit kerja Fakultas MIPA.',
-            //         ],
-            //         'metadata' => [
-            //             'message' => 'Berdasarkan surat Dekan FMIPA No.753/UN11.1.8/KP.11.00/2022, maka kepada pegawai tendik di unit kerja Fakultas MIPA untuk melakukan absen pada mesin Finger di unit kerja Fakultas MIPA.',
-            //             'code' => 400
-            //         ]
-            //     ];
-            //     $this->response($response, 200);
-            //     exit();
+        // //lokasi hanya utk tendik FMIPA
+        // if($this->absen_model->tendik_mipa($nip)){
+        //     $response = [
+        //         'response' => [
+        //             'message' => 'Berdasarkan surat Dekan FMIPA No.753/UN11.1.8/KP.11.00/2022, maka kepada pegawai tendik di unit kerja Fakultas MIPA untuk melakukan absen pada mesin Finger di unit kerja Fakultas MIPA.',
+        //         ],
+        //         'metadata' => [
+        //             'message' => 'Berdasarkan surat Dekan FMIPA No.753/UN11.1.8/KP.11.00/2022, maka kepada pegawai tendik di unit kerja Fakultas MIPA untuk melakukan absen pada mesin Finger di unit kerja Fakultas MIPA.',
+        //             'code' => 400
+        //         ]
+        //     ];
+        //     $this->response($response, 200);
+        //     exit();
+        // }
+
+        if (!$status['status']) { //check apa berhasil absen
+            if (isset($status['is_aktif']) && !$status['is_aktif']) {
+                $response = [
+                    'response' => [
+                        'message' => 'Tidak dapat melakukan absen, absen mobile anda diblokir!',
+                    ],
+                    'metadata' => [
+                        'message' => 'Tidak dapat melakukan absen, absen mobile anda diblokir!',
+                        'code' => 400
+                    ]
+                ];
+                $this->response($response, 200);
+                exit();
+            } else if (!$status['lokasi_kerja']) { //apa gk bisa absen karna gk ada data nip di lokasi_kerja_pegawai
+                $response = [
+                    'response' => [
+                        'message' => 'Tidak dapat melakukan absen, hanya dosen yang boleh menggunakan absen mobile!',
+                    ],
+                    'metadata' => [
+                        'message' => 'Tidak dapat melakukan absen, hanya dosen yang boleh menggunakan absen mobile!',
+                        'code' => 400
+                    ]
+                ];
+                $this->response($response, 200);
+                exit();
+            } else {
+                // $response = [
+                //     'response' => [
+                //         'message' => 'Tidak dapat melakukan absen DI LUAR wilayah ' . $status['lokasi_kerja']->nama_lokasi . '! Scale: ' . $status['jarak'],
+                //     ],
+                //     'metadata' => [
+                //         'message' => 'Tidak dapat melakukan absen DI LUAR wilayah ' . $status['lokasi_kerja']->nama_lokasi . '! Scale: ' . $status['jarak'],
+                //         'code' => 400
+                //     ]
+                // ];
+                $response = [
+                    'response' => [
+                        'message' => "Tidak dapat melakukan absen DI LUAR wilayah USK! lat: $lat, lon: $lon",
+                    ],
+                    'metadata' => [
+                        'message' => "Tidak dapat melakukan absen DI LUAR wilayah USK! lat: $lat, lon: $lon",
+                        'code' => 400
+                    ]
+                ];
+                $this->response($response, 200);
+                exit();
+            }
+        }
+
+        $jenis_absen = 1;
+
+        //kalau pegawai biasa
+        if ($shift == 1) {
+
+            // if ($status['lokasi_kerja']->jenis_pegawai == 1) { //DS (dosen biasa) //basis lokasi
+            // // if ($status['lokasi_kerja'] && $status['lokasi_kerja']->jenis_pegawai == 1) { //DS (dosen biasa) //tanpa lokasi
+
+            //     //jam dibuat rapat antara pagi dan sore
+            //     $toleransi_pagi2 = '13:00:00';
+            //     $toleransi_sore1 = '13:00:01';
             // }
 
-            if (!$status['status']) { //check apa berhasil absen
-                if(isset($status['is_aktif']) && !$status['is_aktif']){
-                    $response = [
-                        'response' => [
-                            'message' => 'Tidak dapat melakukan absen, absen mobile anda diblokir!',
-                        ],
-                        'metadata' => [
-                            'message' => 'Tidak dapat melakukan absen, absen mobile anda diblokir!',
-                            'code' => 400
-                        ]
-                    ];
-                    $this->response($response, 200);
-                    exit();
-                } else if (!$status['lokasi_kerja']) { //apa gk bisa absen karna gk ada data nip di lokasi_kerja_pegawai
-                    $response = [
-                        'response' => [
-                            'message' => 'Tidak dapat melakukan absen, hanya dosen yang boleh menggunakan absen mobile!',
-                        ],
-                        'metadata' => [
-                            'message' => 'Tidak dapat melakukan absen, hanya dosen yang boleh menggunakan absen mobile!',
-                            'code' => 400
-                        ]
-                    ];
-                    $this->response($response, 200);
-                    exit();
-                } else {
-                    // $response = [
-                    //     'response' => [
-                    //         'message' => 'Tidak dapat melakukan absen DI LUAR wilayah ' . $status['lokasi_kerja']->nama_lokasi . '! Scale: ' . $status['jarak'],
-                    //     ],
-                    //     'metadata' => [
-                    //         'message' => 'Tidak dapat melakukan absen DI LUAR wilayah ' . $status['lokasi_kerja']->nama_lokasi . '! Scale: ' . $status['jarak'],
-                    //         'code' => 400
-                    //     ]
-                    // ];
-                    $response = [
-                        'response' => [
-                            'message' => "Tidak dapat melakukan absen DI LUAR wilayah USK! lat: $lat, lon: $lon",
-                        ],
-                        'metadata' => [
-                            'message' => "Tidak dapat melakukan absen DI LUAR wilayah USK! lat: $lat, lon: $lon",
-                            'code' => 400
-                        ]
-                    ];
-                    $this->response($response, 200);
-                    exit();
-                }
+            if ($jam >= $toleransi_pagi1 && $jam <= $toleransi_pagi2) { //absen masuk
+                $jenis_absen = 1;
+                $insert_absen = $this->absen_model->insert_absen_pagi_noshift($nip, $tanggal, $jam, $lat, $lon);
+            } else if ($jam >= $toleransi_sore1 && $jam <= $toleransi_sore2) { //absen pulang
+                $jenis_absen = 2;
+                $insert_absen = $this->absen_model->insert_absen_sore_noshift($nip, $tanggal, $jam, $lat, $lon);
+            } else {
+                //kalau gk di waktu absen
+                $response = [
+                    'response' => [
+                        'message' => 'Tidak dapat melakukan absen DI LUAR jam toleransi absen!',
+                    ],
+                    'metadata' => [
+                        'message' => 'Tidak dapat melakukan absen DI LUAR jam toleransi absen!',
+                        'code' => 400
+                    ]
+                ];
+                $this->response($response, 200);
+                exit();
             }
+        } else { //absen shift
+            $insert_absen = $this->absen_model->insert_absen_shift($nip, $tanggal, $jam, $lat, $lon);
+            $jenis_absen = $insert_absen;
+        }
 
-            $jenis_absen = 1;
+        if ($insert_absen) {
+            $rekap_today = $this->absen_model->get_rekap_today($nip);
+            if ($rekap_today) {
+                if ($status['lokasi_kerja'] && $status['lokasi_kerja']->jenis_pegawai == 1) {
 
-            //kalau pegawai biasa
-            if ($shift == 1) {
+                    $hadir = !!($rekap_today->jam_masuk || $rekap_today->jam_pulang);
 
-                // if ($status['lokasi_kerja']->jenis_pegawai == 1) { //DS (dosen biasa) //basis lokasi
-                // // if ($status['lokasi_kerja'] && $status['lokasi_kerja']->jenis_pegawai == 1) { //DS (dosen biasa) //tanpa lokasi
-
-                //     //jam dibuat rapat antara pagi dan sore
-                //     $toleransi_pagi2 = '13:00:00';
-                //     $toleransi_sore1 = '13:00:01';
-                // }
-
-                if ($jam >= $toleransi_pagi1 && $jam <= $toleransi_pagi2) { //absen masuk
-                    $jenis_absen = 1;
-                    $insert_absen = $this->absen_model->insert_absen_pagi_noshift($nip, $tanggal, $jam, $lat, $lon);
-                } else if ($jam >= $toleransi_sore1 && $jam <= $toleransi_sore2) { //absen pulang
-                    $jenis_absen = 2;
-                    $insert_absen = $this->absen_model->insert_absen_sore_noshift($nip, $tanggal, $jam, $lat, $lon);
-                } else {
-                    //kalau gk di waktu absen
-                    $response = [
-                        'response' => [
-                            'message' => 'Tidak dapat melakukan absen DI LUAR jam toleransi absen!',
-                        ],
-                        'metadata' => [
-                            'message' => 'Tidak dapat melakukan absen DI LUAR jam toleransi absen!',
-                            'code' => 400
+                    $res = [
+                        'status' => true,
+                        'jenis_absen' => $jenis_absen,
+                        'tanggal' => date('Y-m-d'),
+                        'rekap' => [
+                            'masuk' => $rekap_today->jam_masuk ?: ($hadir ? 'HADIR' : null),
+                            'pulang' => $rekap_today->jam_pulang ?: ($hadir ? 'HADIR' : null),
                         ]
-                    ];
-                    $this->response($response, 200);
-                    exit();
-                }
-            } else { //absen shift
-                $insert_absen = $this->absen_model->insert_absen_shift($nip, $tanggal, $jam, $lat, $lon);
-                $jenis_absen = $insert_absen;
-            }
-
-            if ($insert_absen) {
-                $rekap_today = $this->absen_model->get_rekap_today($nip);
-                if ($rekap_today) {
-                    if ($status['lokasi_kerja'] && $status['lokasi_kerja']->jenis_pegawai == 1) {
-
-                        $hadir = !!($rekap_today->jam_masuk || $rekap_today->jam_pulang);
-
-                        $res = [
-                            'status' => true,
-                            'jenis_absen' => $jenis_absen,
-                            'tanggal' => date('Y-m-d'),
-                            'rekap' => [
-                                'masuk' => $rekap_today->jam_masuk ?: ($hadir ? 'HADIR' : null),
-                                'pulang' => $rekap_today->jam_pulang ?: ($hadir ? 'HADIR' : null),
-                            ]
-                        ];
-                    } else {
-                        $res = [
-                            'status' => true,
-                            'jenis_absen' => $jenis_absen,
-                            'tanggal' => date('Y-m-d'),
-                            'rekap' => [
-                                'masuk' => $rekap_today->jam_masuk,
-                                'pulang' => $rekap_today->jam_pulang,
-                            ]
-                        ];
-                    }
-                    $meta = [
-                        'message' => 'Ok',
-                        'code' => 200
                     ];
                 } else {
                     $res = [
@@ -496,25 +461,40 @@ class Absen extends CI_Controller
                         'jenis_absen' => $jenis_absen,
                         'tanggal' => date('Y-m-d'),
                         'rekap' => [
-                            'masuk' => null,
-                            'pulang' => null,
+                            'masuk' => $rekap_today->jam_masuk,
+                            'pulang' => $rekap_today->jam_pulang,
                         ]
                     ];
-                    $meta = [
-                        'message' => 'Ok',
-                        'code' => 200
-                    ];
                 }
+                $meta = [
+                    'message' => 'Ok',
+                    'code' => 200
+                ];
             } else {
                 $res = [
-                    'status' => false,
-                    'message' => 'Gagal, tidak dapat melakukan absen ' . ($jenis_absen == 1 ? 'masuk' : 'pulang') . ' lebih dari sekali!'
+                    'status' => true,
+                    'jenis_absen' => $jenis_absen,
+                    'tanggal' => date('Y-m-d'),
+                    'rekap' => [
+                        'masuk' => null,
+                        'pulang' => null,
+                    ]
                 ];
                 $meta = [
-                    'message' => 'Gagal, tidak dapat melakukan absen ' . ($jenis_absen == 1 ? 'masuk' : 'pulang') . ' lebih dari sekali!',
+                    'message' => 'Ok',
                     'code' => 200
                 ];
             }
+        } else {
+            $res = [
+                'status' => false,
+                'message' => 'Gagal, tidak dapat melakukan absen ' . ($jenis_absen == 1 ? 'masuk' : 'pulang') . ' lebih dari sekali!'
+            ];
+            $meta = [
+                'message' => 'Gagal, tidak dapat melakukan absen ' . ($jenis_absen == 1 ? 'masuk' : 'pulang') . ' lebih dari sekali!',
+                'code' => 200
+            ];
+        }
         // }
 
         $response = [
