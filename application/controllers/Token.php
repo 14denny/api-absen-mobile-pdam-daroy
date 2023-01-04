@@ -30,7 +30,7 @@ class Token extends CI_Controller
         $username = $this->post('username');
         $password = $this->post('password');
         if ($this->user_model->verify_login($username, $password)) {
-            $token = JWT::generateToken(['username' => $username]);
+            $token = JWT::generateToken(['username' => $username, 'timestamp'=> strtotime(date('Y-m-d H:i:s'))]);
             $response = [
                 "response" => [
                     'token' => $token

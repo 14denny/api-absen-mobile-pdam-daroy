@@ -27,8 +27,15 @@ class JWT
 
     public static function validateToken($token)
     {
-        $CI =& get_instance();
-        return JWT::decode($token, $CI->config->item('jwt_key'));
+		$CI = &get_instance();
+		$token = JWT::decode($token, $CI->config->item('jwt_key'));
+		if (
+			$token != false && isset($token->timestamp)
+			&& (strtotime(date('Y-m-d H:i:s')) - $token->timestamp < ($CI->config->item('token_timeout') * 60))
+		) {
+			return $token;
+		}
+		return false;
     }
 
     public static function generateToken($data)

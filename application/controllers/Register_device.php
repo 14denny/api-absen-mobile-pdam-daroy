@@ -73,9 +73,9 @@ class Register_device extends CI_Controller
     {
         $this->verify_request();
 
-        $appid = $this->post("appid");
-        $nik = $this->post("nik");
-        $version = $this->post("version");
+        $appid = $this->post("appid", true);
+        $nik = $this->post("nik", true);
+        $version = $this->post("version", true);
         $version = $version ? $version : 1;
 
         if ($nik == null || $nik == "") {
@@ -121,7 +121,7 @@ class Register_device extends CI_Controller
         }
 
         //check apakah nip sudah pernah mendaftarkan perangkatnya
-        if ($this->verify_model->nip_registered($nik, $version)) {
+        if ($this->verify_model->nik_registered($nik, $version)) {
             $response = [
                 'response' => [
                     'message' => 'Sudah ada NIK yang didaftarkan untuk perangkat ini',
@@ -153,7 +153,8 @@ class Register_device extends CI_Controller
         }
 
         //check apakah nip ada di database
-        if (!$this->login_model->cek_nip($nik)) {
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
             $response = [
                 'response' => [
                     'message' => "NIK $nik tidak ditemukan!"
@@ -170,7 +171,7 @@ class Register_device extends CI_Controller
 
 
         //daftarkan perangkat dan NIK
-        $insert = $this->verify_model->insert_device(strtoupper($appid), $nik, $version);
+        $insert = $this->verify_model->insert_device(strtoupper($appid), $pegawai->id, $version);
 
         if ($insert) {
             $res = [
@@ -207,8 +208,8 @@ class Register_device extends CI_Controller
     {
         $this->verify_request();
 
-        $appid = strtoupper($this->post("appid"));
-        $version = $this->post("version");
+        $appid = strtoupper($this->post("appid", true));
+        $version = $this->post("version", true);
         $version = $version ? $version : 1;
 
         if ($appid == null || $appid == "") {

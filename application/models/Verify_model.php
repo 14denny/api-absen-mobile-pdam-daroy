@@ -11,25 +11,34 @@ class Verify_model extends CI_Model
         return $res_appid || $res_nip;
     }
 
-    function insert_device($appid, $nip, $version)
+    function insert_device($appid, $id_pegawai, $version)
     {
         $data = [
             'appid' => $appid,
-            'nip' => $nip,
+            'id_pegawai' => $id_pegawai,
             'version' => $version
         ];
         return $this->db->insert('registered_device', $data);
     }
 
-    function nip_registered($nip, $version)
+    function nik_registered($nik, $version)
     {
-        $result = $this->db->query("SELECT * from registered_device where nip='$nip' and version='$version'")->row();
+        $result = $this->db->select('1')
+        ->from('registered_device rd')
+        ->join('pegawai p', 'p.id=rd.id_pegawai')
+        ->where('p.nik', $nik)
+        ->where('version', $version)->get()->row();
+
         return $result != null;
     }
 
     function appid_registered($appid, $version)
     {
-        $result = $this->db->query("SELECT * from registered_device where appid='$appid' and version='$version'")->row();
+        $result = $this->db->select('1')
+        ->from('registered_device rd')
+        ->where('appid', $appid)
+        ->where('version', $version)
+        ->get()->row();
         return $result != null;
     }
 
