@@ -843,24 +843,220 @@ class Absen extends CI_Controller
         $this->response($response, 200);
     }
 
-    public function catatan_get()
+    public function submit_foto_post()
     {
         $this->verify_request();
 
-        $res = [
-            'status' => true,
-            'catatan' => [
-                [1, 'APLIKASI ABSEN MOBILE INI HANYA DAPAT DIGUNAKAN OLEH DOSEN!'],
-                [2, 'Untuk Dosen DS cukup 1 (satu) kali absen'],
-                [3, 'Jam toleransi absen dosen DS: Jam 7:30 sd 18:00'],
-                // [3, 'Absen dilakukan cukup 2 (dua) kali masuk dan pulang saja'],
-                // [4, 'Untuk pegawai shift absen 2 (dua) kali sesuai jam yang telah ditentukan oleh atasannya masing-masing'],
-            ]
+        $nik = $this->db->escape_str($this->post('nik'));
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $this->verify_device($nik);
+
+        if ($_FILES["foto"]["error"]) {
+            $response = [
+                'response' => [
+                    'message' => 'Foto error. ',
+                ],
+                'metadata' => [
+                    'message' => 'Foto error',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK pegawai tidak dapat ditemukan',
+                    'nik' => $nik,
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek nik yang dikirm sama dengan nik yang terdaftar dengan appid
+        $headers = $this->input->request_headers();
+        $version = $headers['x-version'];
+        $appid = $headers['x-appid'];
+        $registered = $this->main_model->select('registered_device r', '*, (select nik from pegawai p where p.id=r.id_pegawai) as nik', ['appid' => $appid, 'version' => $version]);
+        if (!$registered) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Perangkat belum terdaftar',
+                    'code' => 403
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($registered->nik != $nik) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK yang dikirimkan tidak sama dengan NIK yang didaftarkan untuk perangkat ini',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $config['file_name'] = "$nik";
+        $config['upload_path'] = './foto-pegawai';
+        $config['allowed_types'] = 'jpg|png|jpeg';
+        $config['overwrite'] = true;
+        $this->load->library('upload', $config);
+
+        if (!$this->upload->do_upload('foto')) {
+            $error = $this->upload->display_errors('', '');
+            $response = [
+                'response' => [
+                    'message' => 'Gagal upload foto: ' . $error,
+                ],
+                'metadata' => [
+                    'message' => 'Gagal upload foto: ' . $error,
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $data_upload = $this->upload->data();
+        $status = $this->main_model->update('pegawai', ['id' => $pegawai->id], ['foto' => "foto-pegawai/" . $data_upload['file_name']]);
+        if ($status) {
+            $res = [
+                'status' => true,
+                'message' => 'Berhasil',
+            ];
+            $meta = [
+                'message' => 'Berhasil',
+                'code' => 200
+            ];
+        } else {
+            $res = [
+                'status' => false,
+                'message' => 'Gagal mengunggah foto',
+            ];
+            $meta = [
+                'message' => 'Gagal mengunggah foto',
+                'code' => 200
+            ];
+        }
+
+        $response = [
+            'response' => $res,
+            'metadata' => $meta
         ];
-        $meta = [
-            'message' => 'Ok',
-            'code' => 200
-        ];
+
+        $this->response($response, 200);
+    }
+
+    public function cek_foto_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->db->escape_str($this->post('nik'));
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $this->verify_device($nik);
+
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK pegawai tidak dapat ditemukan',
+                    'nik' => $nik,
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek nik yang dikirm sama dengan nik yang terdaftar dengan appid
+        $headers = $this->input->request_headers();
+        $version = $headers['x-version'];
+        $appid = $headers['x-appid'];
+        $registered = $this->main_model->select('registered_device r', '*, (select nik from pegawai p where p.id=r.id_pegawai) as nik', ['appid' => $appid, 'version' => $version]);
+        if (!$registered) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Perangkat belum terdaftar',
+                    'code' => 403
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($registered->nik != $nik) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK yang dikirimkan tidak sama dengan NIK yang didaftarkan untuk perangkat ini',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek foto pegawai
+        if ($pegawai->foto) {
+            $res = [
+                'status' => true,
+                'message' => 'Foto sudah ada',
+            ];
+            $meta = [
+                'message' => 'Foto sudah ada',
+                'code' => 200
+            ];
+        } else {
+            $res = [
+                'status' => false,
+                'message' => 'Foto belum ada',
+            ];
+            $meta = [
+                'message' => 'Foto belum ada',
+                'code' => 200
+            ];
+        }
+
 
         $response = [
             'response' => $res,
