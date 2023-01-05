@@ -133,6 +133,18 @@ class Absen_model extends CI_Model
         return (round($distance, 2)) <= $toleransi_jarak;
     }
 
+    function di_area($lat_kerja, $lon_kerja, $toleransi_jarak, $lat, $lon)
+    {
+        $toleransi_jarak = $toleransi_jarak / 1000; //ubah meter jadi kilometer
+        $theta = $lon_kerja - $lon;
+        $distance = (sin(deg2rad($lat_kerja)) * sin(deg2rad($lat))) + (cos(deg2rad($lat_kerja)) * cos(deg2rad($lat)) * cos(deg2rad($theta)));
+        $distance = acos($distance);
+        $distance = rad2deg($distance);
+        $distance = $distance * 60 * 1.1515;
+        $distance = $distance * 1.609344; //jarak dalam km
+        return ['jarak' => round($distance*1000, 2)." meter / ". round($distance,2). " km", 'status' => ($distance <= $toleransi_jarak)];
+    }
+
     function di_area_tambahan($lat, $lon)
     {
         $lokasi_tambahan = $this->db->get('lokasi_tambahan')->result();
@@ -254,7 +266,7 @@ class Absen_model extends CI_Model
             'status' => ($in_range_usk || $in_range_tambahan),
             // 'jarak' => (round($minimum_distance, 2)),
             'lokasi_kerja' => $lokasi_kerja,
-            'is_aktif'=>true
+            'is_aktif' => true
         );
         // return (round($distance, 2)) <= $toleransi_jarak;
     }
@@ -299,5 +311,50 @@ class Absen_model extends CI_Model
     {
         $db = $this->load->database('kpa', true);
         return $db->query("SELECT 1 from pegawai where tenaga >= 2 and unit_kerja ='13' and nip_baru='$nip'")->row();
+    }
+
+    function get_lokasi_kerja($id_pegawai){
+        return $this->db->select('lk.*')
+        ->from('lokasi_kerja lk')
+        ->join('lokasi_kerja_pegawai lkp', 'lkp.id_lokasi=lk.id')
+        ->where('id_pegawai', $id_pegawai)->get()->row();
+    }
+
+    function compress_image($source, $path)
+    {
+
+        $max_size = 700000; //penentu kualitas
+
+        $info = getimagesize($source);
+
+        if ($info['mime'] == 'image/jpeg')
+        $image = imagecreatefromjpeg($source);
+
+        elseif ($info['mime'] == 'image/gif')
+        $image = imagecreatefromgif($source);
+
+        elseif ($info['mime'] == 'image/png')
+        $image = imagecreatefrompng($source);
+
+        $imagefilesize = filesize($source);
+
+        //hitung kualitas berdasarkan ukuran file
+        //semakin besar file, semakin besar proses kompresi gambarnya (maksimal filesize adalah 700kb)
+        if ($max_size > $imagefilesize) {
+            $quality = 100;
+        } else {
+            $quality = $max_size / $imagefilesize * 100;
+        }
+
+
+        return imagejpeg($image, $path, $quality);
+    }
+
+    function dalam_waktu_absen($jenis_absen, $id_lokasi){
+        $tanggal = date('Y-m-d');
+        $waktu = date('H:i:s');
+        $kol = $jenis_absen == 1 ? "masuk" : "pulang";
+        return $this->db->query("SELECT 1 from waktu_absen where id_lokasi='$id_lokasi' and tanggal <= '$tanggal' and ".$kol."_start >= '$waktu' and " . $kol . "_end <= '$waktu' order by tanggal desc limit 1")->row();
+        
     }
 }
