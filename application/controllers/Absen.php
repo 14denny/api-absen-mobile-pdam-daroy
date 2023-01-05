@@ -225,6 +225,116 @@ class Absen extends CI_Controller
         $this->response($response, 200);
     }
 
+    public function rekap_absen_bulanan_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->db->escape_str($this->post('nik'));
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $bulan = $this->db->escape_str($this->post('bulan'));
+        if ($bulan == null || $bulan == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'bulan\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'bulan\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+        $bulan = sprintf('%02d', $bulan);
+
+        $tahun = $this->db->escape_str($this->post('tahun'));
+        if ($tahun == null || $tahun == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'tahun\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'tahun\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $this->verify_device($nik);
+
+        //cek pegawai
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => [
+                    'message' => 'Data pegawai tidak ditemukan',
+                ],
+                'metadata' => [
+                    'message' => 'Data pegawai tidak ditemukan',
+                    'code' => 404
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $rekap = $this->absen_model->rekap_bulanan_pegawai($tahun, $bulan, $pegawai->id);
+        $result_rekap = [];
+        foreach ($rekap as $d) {
+            if ($d->jenis == 1 && $d->dw == 1) { //absen biasa dan hari minggu, skip
+                continue;
+            }
+
+            $data = array(
+                'tanggal' => date('d-m-Y', strtotime($d->tanggal)),
+                'hari' => $this->absen_model->nama_hari($d->tanggal),
+                'jenis' => $d->jenis,
+                'nama_jenis' => $d->jenis == 1 ? "Kantor" : "Kunjungan",
+                'masuk' => $d->jam_masuk ? date('H:i', strtotime($d->jam_masuk)) : '-',
+                'keluar' => $d->jam_pulang ? date('H:i', strtotime($d->jam_pulang)) : '-',
+                'tidak_lengkap' => !!$d->tidak_lengkap,
+                'terlambat' => !!$d->terlambat,
+                'tanpa_status' => !!$d->tanpa_status,
+                'needs_approval' => $d->needs_approval,
+                'approved' => $d->approved,
+            );
+            array_push($result_rekap, $data);
+        }
+
+
+        $res = [
+            'status' => true,
+            'rekap' => $result_rekap
+        ];
+        $meta = [
+            'message' => 'Ok',
+            'code' => 200
+        ];
+
+
+        $response = [
+            'response' => $res,
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
     public function absen_post()
     {
         $this->verify_request();
@@ -411,7 +521,8 @@ class Absen extends CI_Controller
                     "lat_$kol" => $lat,
                     "jam_$kol" => date('H:i:s'),
                     "needs_approval" => $needs_approval,
-                    "gps_out" => !$di_area['status']
+                    "gps_out" => !$di_area['status'],
+                    "id_lokasi" => $lk->id
                 );
 
                 if ($absen) {
@@ -448,6 +559,265 @@ class Absen extends CI_Controller
                 ];
                 $meta = [
                     'message' => 'Gagal, tidak dapat melakukan absen lebih dari sekali!',
+                    'code' => 200
+                ];
+            }
+        } else {
+            $response = [
+                'response' => [
+                    'message' => 'Gagal mengunggah foto',
+                ],
+                'metadata' => [
+                    'message' => 'Gagal mengunggah foto',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $response = [
+            'response' => $res,
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
+    public function kunjungan_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->db->escape_str($this->post('nik'));
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $this->verify_device($nik);
+
+        $lat = $this->db->escape_str($this->post('lat'));
+        if ($lat == null || $lat == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'lat\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'lat\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $lon = $this->db->escape_str($this->post('lon'));
+        if ($lon == null || $lon == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'lon\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'lon\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($_FILES["foto"]["error"]) {
+            $response = [
+                'response' => [
+                    'message' => 'Foto error. ',
+                ],
+                'metadata' => [
+                    'message' => 'Foto error',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $jenis = $this->post('jenis', true);
+        if ($jenis == null || $jenis == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'jenis\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'jenis\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($jenis != 1 && $jenis != 2) {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'jenis\' tidak sesuai',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'jenis\' tidak sesuai',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $keterangan = $this->post('keterangan', true);
+        if ($jenis == 1 && ($keterangan == null || $keterangan == "")) {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'keterangan\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'keterangan\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
+        if (!$pegawai) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK pegawai tidak dapat ditemukan',
+                    'nik' => $nik,
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek nik yang dikirm sama dengan nik yang terdaftar dengan appid
+        $headers = $this->input->request_headers();
+        $version = $headers['x-version'];
+        $appid = $headers['x-appid'];
+        $registered = $this->main_model->select('registered_device r', '*, (select nik from pegawai p where p.id=r.id_pegawai) as nik', ['appid' => $appid, 'version' => $version]);
+        if (!$registered) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'Perangkat belum terdaftar',
+                    'code' => 403
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($registered->nik != $nik) {
+            $response = [
+                'response' => null,
+                'metadata' => [
+                    'message' => 'NIK yang dikirimkan tidak sama dengan NIK yang didaftarkan untuk perangkat ini',
+                    'code' => 500
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $tanggal = date('Y-m-d');
+
+        //cek apa sudah absen
+        $kunjungan = $this->main_model->select('kunjungan_client', '*', ['id_pegawai' => $pegawai->id, 'tanggal' => $tanggal]);
+
+        $kol = ($jenis == 1 ? "jam_mulai" : "jam_selesai");
+        if ($kunjungan && $kunjungan->$kol) {
+            $response = [
+                'response' => [
+                    'message' => 'Tidak dapat melakukan absen ' . ($jenis == 1 ? "mulai" : "selesai") . ' kunjungan lebih dari sekali',
+                ],
+                'metadata' => [
+                    'message' => 'Tidak dapat melakukan absen ' . ($jenis == 1 ? "mulai" : "selesai") . ' kunjungan lebih dari sekali',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $config['file_name'] = "$nik-$tanggal-$jenis";
+        $config['upload_path'] = './foto-kunjungan';
+        $config['allowed_types'] = 'jpg|png|jpeg';
+        $config['overwrite'] = true;
+        $this->load->library('upload', $config);
+
+        if (!$this->upload->do_upload('foto')) {
+            $error = $this->upload->display_errors('', '');
+            $response = [
+                'response' => [
+                    'message' => 'Gagal upload foto: ' . $error,
+                ],
+                'metadata' => [
+                    'message' => 'Gagal upload foto: ' . $error,
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $data_upload = $this->upload->data();
+        $source = $data_upload['full_path'];
+        $path = $source;
+        if ($this->absen_model->compress_image($source, $path)) {
+
+            $kol = $jenis == 1 ? 'mulai' : 'selesai';
+            $data_kunjungan = array(
+                "id_pegawai" => $pegawai->id,
+                "tanggal" => $tanggal,
+                "foto_$kol" => "foto-kunjungan/" . $data_upload['file_name'],
+                "lon_$kol" => $lon,
+                "lat_$kol" => $lat,
+                "jam_$kol" => date('H:i:s'),
+            );
+
+            if ($jenis == 1) {
+                $data_kunjungan["keterangan"] = $keterangan;
+            }
+
+            if ($kunjungan) {
+                $status = $this->main_model->update('kunjungan_client', ['id' => $kunjungan->id], $data_kunjungan);
+            } else {
+                $status = $this->main_model->insert('kunjungan_client', $data_kunjungan);
+            }
+
+            if ($status) {
+                $res = [
+                    'status' => true,
+                    'message' => 'Berhasil',
+                ];
+                $meta = [
+                    'message' => 'Berhasil',
+                    'code' => 200
+                ];
+            } else {
+                $res = [
+                    'status' => false,
+                    'message' => 'Gagal melakukan absensi',
+                ];
+                $meta = [
+                    'message' => 'Gagal melakukan absensi',
                     'code' => 200
                 ];
             }

@@ -355,6 +355,28 @@ class Absen_model extends CI_Model
         $waktu = date('H:i:s');
         $kol = $jenis_absen == 1 ? "masuk" : "pulang";
         return $this->db->query("SELECT 1 from waktu_absen where id_lokasi='$id_lokasi' and tanggal <= '$tanggal' and ".$kol."_start >= '$waktu' and " . $kol . "_end <= '$waktu' order by tanggal desc limit 1")->row();
-        
+    }
+
+    function rekap_bulanan_pegawai($tahun, $bulan, $id_pegawai){
+        return $this->db->query("SELECT * FROM (
+            SELECT '1' as jenis, c.dt as tanggal, c.dw, c.isWeekday, c.isHoliday, a.jam_masuk, a.jam_pulang, a.needs_approval, a.approved,
+                        ifnull(time_to_sec(timediff(jam_pulang, jam_masuk)),0) total_waktu,
+                        case when (jam_masuk is null or jam_pulang is null) and status=1 then 1 else 0 end as tidak_lengkap,
+                        case when status=1 and jam_masuk >
+                            (select masuk_end from waktu_absen wa where wa.id_lokasi=a.id_lokasi and wa.tanggal <= a.tanggal order by wa.tanggal desc limit 1) 
+                        then 1 else 0 end as terlambat,
+                        time_to_sec(timediff(jam_masuk, (select masuk_end from waktu_absen wa where wa.id_lokasi=a.id_lokasi and wa.tanggal <= a.tanggal order by wa.tanggal desc limit 1))) as waktu_terlambat,
+                        case when c.isWeekDay=1 and c.isHoliday=0 and jam_masuk is null and jam_pulang is null then 1 else 0 end as tanpa_status
+                        from (select * from calendar_table where date_format(dt, '%Y-%m') = '$tahun-$bulan') c
+                        left join (select * from absen where id_pegawai='$id_pegawai') a on a.tanggal=c.dt
+            union
+            SELECT '2' as jenis, tanggal, dayofweek(tanggal) as dw, null, null, jam_mulai, jam_selesai, null, null, null, null, null, null, null
+            from kunjungan_client where date_format(tanggal, '%Y-%m') = '$tahun-$bulan' and id_pegawai='$id_pegawai') r order by tanggal")->result();
+    }
+
+    function nama_hari($tgl)
+    {
+        $hari = array('Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu');
+        return $hari[date('w', strtotime($tgl))];
     }
 }
