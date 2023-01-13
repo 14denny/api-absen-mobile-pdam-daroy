@@ -242,7 +242,7 @@ class Register_device extends CI_Controller
                 'message' => "Perangkat belum terdaftar!"
             ];
             $meta = [
-                'message' => 'Error',
+                'message' => 'Perangkat belum terdaftar!',
                 'code' => 500
             ];
         }
