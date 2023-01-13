@@ -142,7 +142,7 @@ class Absen_model extends CI_Model
         $distance = rad2deg($distance);
         $distance = $distance * 60 * 1.1515;
         $distance = $distance * 1.609344; //jarak dalam km
-        return ['jarak' => round($distance*1000, 2)." meter / ". round($distance,2). " km", 'status' => ($distance <= $toleransi_jarak)];
+        return ['distance'=> $distance * 1000, 'jarak' => round($distance*1000, 2)." meter / ". round($distance,2). " km", 'status' => ($distance <= $toleransi_jarak)];
     }
 
     function di_area_tambahan($lat, $lon)
@@ -317,7 +317,9 @@ class Absen_model extends CI_Model
         return $this->db->select('lk.*')
         ->from('lokasi_kerja lk')
         ->join('lokasi_kerja_pegawai lkp', 'lkp.id_lokasi=lk.id')
-        ->where('id_pegawai', $id_pegawai)->get()->row();
+        ->where('id_pegawai', $id_pegawai)
+        ->where('lk.status', 1)
+        ->get()->result();
     }
 
     function compress_image($source, $path)

@@ -509,10 +509,23 @@ class Absen extends CI_Controller
             //cek data absen
             if ($jenis == 1 || $jenis == 2) {
                 $lk = $this->absen_model->get_lokasi_kerja($pegawai->id);
-                $di_area = $this->absen_model->di_area($lk->lat, $lk->lon, $lk->toleransi_jarak, $lat, $lon);
+                $closest = null;
+                $closest_lk = null;
+                foreach ($lk as $l) {
+                    $new = $this->absen_model->di_area($l->lat, $l->lon, $l->toleransi_jarak, $lat, $lon);
+                    if (!$closest) { //loop pertama
+                        $closest = $new;
+                        $closest_lk = $l;
+                    } else { //jika jarak lebih kecil, ganti dengan yang baru
+                        if ($closest['distance'] > $new['distance']) {
+                            $closest = $new;
+                            $closest_lk = $l;
+                        }
+                    }
+                }
                 $kol = $jenis == 1 ? 'masuk' : 'pulang';
-                $dalam_waktu = $this->absen_model->dalam_waktu_absen($jenis, $lk->id);
-                $needs_approval = !$di_area['status'] || !$dalam_waktu;
+                $dalam_waktu = $this->absen_model->dalam_waktu_absen($jenis, $closest_lk->id);
+                $needs_approval = !$closest['status'] || !$dalam_waktu;
                 $data_absen = array(
                     "id_pegawai" => $pegawai->id,
                     "tanggal" => $tanggal,
@@ -521,8 +534,8 @@ class Absen extends CI_Controller
                     "lat_$kol" => $lat,
                     "jam_$kol" => date('H:i:s'),
                     "needs_approval" => $needs_approval,
-                    "gps_out" => !$di_area['status'],
-                    "id_lokasi" => $lk->id
+                    "gps_out" => !$closest['status'],
+                    "id_lokasi" => $closest_lk->id
                 );
 
                 if ($absen) {
@@ -535,7 +548,7 @@ class Absen extends CI_Controller
                     $res = [
                         'status' => true,
                         'message' => 'Berhasil',
-                        'di_area' => $di_area['status'],
+                        'di_area' => $closest['status'],
                         'di_waktu' => !!$dalam_waktu
                     ];
                     $meta = [
@@ -1149,13 +1162,13 @@ class Absen extends CI_Controller
         }
 
         $lokasi_kerja = $this->absen_model->get_lokasi_kerja($pegawai->id);
-        if (!$lokasi_kerja->status) {
+        if (!$lokasi_kerja) {
             $response = [
                 'response' => [
-                    'message' => "Lokasi kerja bukan lokasi aktif dan tidak dapat digunakan untuk absensi. Harap hubungi admin untuk informasi lebih lanjut",
+                    'message' => "Tidak ada lokasi kerja aktif yang dapat digunakan. Harap hubungi admin untuk informasi lebih lanjut",
                 ],
                 'metadata' => [
-                    'message' => 'Lokasi kerja bukan lokasi aktif dan tidak dapat digunakan untuk absensi. Harap hubungi admin untuk informasi lebih lanjut',
+                    'message' => 'Tidak ada lokasi kerja aktif yang dapat digunakan. Harap hubungi admin untuk informasi lebih lanjut',
                     'code' => 400
                 ]
             ];
@@ -1163,14 +1176,24 @@ class Absen extends CI_Controller
             exit();
         }
 
-        $res = $this->absen_model->di_area($lokasi_kerja->lat, $lokasi_kerja->lon, $lokasi_kerja->toleransi_jarak, $lat, $lon);
+        $closest = null;
+        foreach($lokasi_kerja as $l){
+            $new = $this->absen_model->di_area($l->lat, $l->lon, $l->toleransi_jarak, $lat, $lon);
+            if(!$closest){ //loop pertama
+                $closest = $new;
+            } else { //jika jarak lebih kecil, ganti dengan yang baru
+                if($closest['distance'] > $new['distance']){
+                    $closest = $new;
+                }
+            }
+        }
         $meta = [
             'message' => 'Ok',
             'code' => 200
         ];
 
         $response = [
-            'response' => $res,
+            'response' => $closest,
             'metadata' => $meta
         ];
 
