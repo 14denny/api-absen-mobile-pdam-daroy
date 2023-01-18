@@ -464,6 +464,37 @@ class Absen extends CI_Controller
         $absen = $this->main_model->select('absen', '*', ['id_pegawai' => $pegawai->id, 'tanggal' => $tanggal]);
 
         if ($jenis == 1 || $jenis == 2) { //absen masuk dan keluar
+            $jam = date('H:i:s');
+            if($absen && $jenis == 1){
+                if($jam > $absen->jam_pulang){
+                    $response = [
+                        'response' => [
+                            'message' => 'Absen harus berurutan (Absen masuk terlebih dahulu)',
+                        ],
+                        'metadata' => [
+                            'message' => 'Absen harus berurutan (Absen masuk terlebih dahulu)',
+                            'code' => 400
+                        ]
+                    ];
+                    $this->response($response, 200);
+                    exit();
+                }
+            }
+            if($absen && $jenis == 2){
+                if($jam < $absen->jam_masuk){
+                    $response = [
+                        'response' => [
+                            'message' => 'Absen harus berurutan (Absen masuk terlebih dahulu)',
+                        ],
+                        'metadata' => [
+                            'message' => 'Absen harus berurutan (Absen masuk terlebih dahulu)',
+                            'code' => 400
+                        ]
+                    ];
+                    $this->response($response, 200);
+                    exit();
+                }
+            }
 
             $kol = ($jenis == 1 ? "jam_masuk" : "jam_pulang");
             if ($absen && $absen->$kol) {
