@@ -173,8 +173,11 @@ class Login extends CI_Controller
 
         if (password_verify($password, $pegawai->password)) {
             $data_pegawai = $this->login_model->data_pegawai($nik);
+            $is_admin = $this->main_model->select('users', '1', ['username'=>$nik]);
+            
             $res = [
                 'status' => true,
+                'is_admin' => $is_admin ? '1' : '0',
                 'message' => 'Login berhasil',
                 'data_pegawai' => $data_pegawai
             ];
