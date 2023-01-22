@@ -361,7 +361,7 @@ class Absen_model extends CI_Model
 
     function rekap_bulanan_pegawai($tahun, $bulan, $id_pegawai){
         return $this->db->query("SELECT * FROM (
-            SELECT '1' as jenis, c.dt as tanggal, c.dw, c.isWeekday, c.isHoliday, a.jam_masuk, a.jam_pulang, a.needs_approval, a.approved,
+            SELECT '1' as jenis, c.dt as tanggal, c.dw, c.isWeekday, c.isHoliday, a.jam_masuk, a.jam_pulang, a.needs_approval, a.approved, date_format(a.tgl_pulang, '%d-%m-%Y') as tgl_pulang,
                         ifnull(time_to_sec(timediff(jam_pulang, jam_masuk)),0) total_waktu,
                         case when (jam_masuk is null or jam_pulang is null) and status=1 then 1 else 0 end as tidak_lengkap,
                         case when status=1 and jam_masuk >
@@ -372,7 +372,7 @@ class Absen_model extends CI_Model
                         from (select * from calendar_table where date_format(dt, '%Y-%m') = '$tahun-$bulan') c
                         left join (select * from absen where id_pegawai='$id_pegawai') a on a.tanggal=c.dt
             union
-            SELECT '2' as jenis, tanggal, dayofweek(tanggal) as dw, null, null, jam_mulai, jam_selesai, null, null, null, null, null, null, null
+            SELECT '2' as jenis, tanggal, dayofweek(tanggal) as dw, null, null, jam_mulai, jam_selesai, null, null, null, null, null, null, null, null
             from kunjungan_client where date_format(tanggal, '%Y-%m') = '$tahun-$bulan' and id_pegawai='$id_pegawai') r order by tanggal")->result();
     }
 

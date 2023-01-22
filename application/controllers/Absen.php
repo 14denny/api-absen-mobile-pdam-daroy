@@ -306,7 +306,7 @@ class Absen extends CI_Controller
                 'jenis' => $d->jenis,
                 'nama_jenis' => $d->jenis == 1 ? "Kantor" : "Kunjungan",
                 'masuk' => $d->jam_masuk ? date('H:i', strtotime($d->jam_masuk)) : '-',
-                'keluar' => $d->jam_pulang ? date('H:i', strtotime($d->jam_pulang)) : '-',
+                'keluar' => $d->jam_pulang ? date('H:i', strtotime($d->jam_pulang)).($d->tgl_pulang ? " (". $d->tgl_pulang.")": '') : '-',
                 'tidak_lengkap' => !!$d->tidak_lengkap,
                 'terlambat' => !!$d->terlambat,
                 'tanpa_status' => !!$d->tanpa_status,
