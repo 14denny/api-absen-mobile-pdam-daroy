@@ -381,4 +381,24 @@ class Absen_model extends CI_Model
         $hari = array('Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu');
         return $hari[date('w', strtotime($tgl))];
     }
+
+    function get_tgl_persetujuan(){
+        return $this->db->query("SELECT distinct tanggal from absen where needs_approval=1 and approved is null")->result();
+    }
+
+    function get_butuh_persetujuan($tgl){
+        return $this->db->query("SELECT b.*, nik, nama from 
+            (SELECT date_format(c.dt, '%d-%m-%Y') as tanggal, c.dw, c.isWeekday, c.isHoliday, c.dt as date,
+                a.id_pegawai, a.jam_masuk as masuk, a.jam_pulang as keluar, a.foto_masuk, a.foto_pulang, 
+                a.gps_out as diluar_wilayah,a.needs_approval, a.approved, a.id as id_absen,
+                case when status=1 and jam_masuk >
+                    (select masuk_end from waktu_absen wa where wa.id_lokasi=a.id_lokasi and wa.tanggal <= a.tanggal order by wa.tanggal desc limit 1) 
+                then 1 else 0 end as diluar_jam,
+                time_to_sec(timediff(jam_masuk, (select masuk_end from waktu_absen wa where wa.id_lokasi=a.id_lokasi and wa.tanggal <= a.tanggal order by wa.tanggal desc limit 1))) as waktu_terlambat,
+                case when c.isWeekDay=1 and c.isHoliday=0 and jam_masuk is null and jam_pulang is null then 1 else 0 end as tanpa_status
+                from (select * from calendar_table where dt = '$tgl') c
+                left join (select * from absen where needs_approval=1) a on a.tanggal=c.dt
+            ) b 
+            join pegawai p on b.id_pegawai=p.id")->result();
+    }
 }

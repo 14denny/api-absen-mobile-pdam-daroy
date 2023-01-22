@@ -465,8 +465,8 @@ class Absen extends CI_Controller
 
         if ($jenis == 1 || $jenis == 2) { //absen masuk dan keluar
             $jam = date('H:i:s');
-            if($absen && $jenis == 1){
-                if($jam > $absen->jam_pulang){
+            if ($absen && $jenis == 1) {
+                if ($jam > $absen->jam_pulang) {
                     $response = [
                         'response' => [
                             'message' => 'Absen harus berurutan (Absen masuk terlebih dahulu)',
@@ -480,8 +480,8 @@ class Absen extends CI_Controller
                     exit();
                 }
             }
-            if($absen && $jenis == 2){
-                if($jam < $absen->jam_masuk){
+            if ($absen && $jenis == 2) {
+                if ($jam < $absen->jam_masuk) {
                     $response = [
                         'response' => [
                             'message' => 'Absen harus berurutan (Absen masuk terlebih dahulu)',
@@ -1208,12 +1208,12 @@ class Absen extends CI_Controller
         }
 
         $closest = null;
-        foreach($lokasi_kerja as $l){
+        foreach ($lokasi_kerja as $l) {
             $new = $this->absen_model->di_area($l->lat, $l->lon, $l->toleransi_jarak, $lat, $lon);
-            if(!$closest){ //loop pertama
+            if (!$closest) { //loop pertama
                 $closest = $new;
             } else { //jika jarak lebih kecil, ganti dengan yang baru
-                if($closest['distance'] > $new['distance']){
+                if ($closest['distance'] > $new['distance']) {
                     $closest = $new;
                 }
             }
@@ -1225,6 +1225,323 @@ class Absen extends CI_Controller
 
         $response = [
             'response' => $closest,
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
+    function needs_approval_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->post('nik', true);
+
+        $this->verify_device($nik);
+
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek admin
+        $is_admin = $this->main_model->select('users', '1', ['username' => $nik]);
+        if (!$is_admin) {
+            $response = [
+                'response' => [
+                    'message' => 'Anda bukan admin',
+                ],
+                'metadata' => [
+                    'message' => 'Anda bukan admin',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //get data needs_approval
+        $needs_approval = $this->main_model->select('absen', '1', ['needs_approval' => '1', 'approved' => null], true);
+        $meta = [
+            'message' => 'Ok',
+            'code' => 200
+        ];
+
+        $response = [
+            'response' => array(
+                'needs_approval' => sizeof($needs_approval)
+            ),
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
+    function get_tanggal_butuh_persetujuan_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->post('nik', true);
+
+        $this->verify_device($nik);
+
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek admin
+        $is_admin = $this->main_model->select('users', '1', ['username' => $nik]);
+        if (!$is_admin) {
+            $response = [
+                'response' => [
+                    'message' => 'Anda bukan admin',
+                ],
+                'metadata' => [
+                    'message' => 'Anda bukan admin',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $list_tgl = $this->absen_model->get_tgl_persetujuan();
+        $tgl = [];
+        foreach ($list_tgl as $l) {
+            array_push($tgl, $l->tanggal);
+        }
+
+        $meta = [
+            'message' => 'Ok',
+            'code' => 200
+        ];
+
+        $response = [
+            'response' => array(
+                'list_tanggal' => $tgl
+            ),
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
+    function get_butuh_persetujuan_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->post('nik', true);
+
+        $this->verify_device($nik);
+
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek admin
+        $is_admin = $this->main_model->select('users', '1', ['username' => $nik]);
+        if (!$is_admin) {
+            $response = [
+                'response' => [
+                    'message' => 'Anda bukan admin',
+                ],
+                'metadata' => [
+                    'message' => 'Anda bukan admin',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $tgl = $this->post('tgl', true);
+        if ($tgl == null || $tgl == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'tgl\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'tgl\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if (!strtotime($tgl)) {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'tgl\' tidak valid',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'tgl\' tidak valid',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $list_tgl = $this->absen_model->get_butuh_persetujuan($tgl);
+
+        $meta = [
+            'message' => 'Ok',
+            'code' => 200
+        ];
+
+        $response = [
+            'response' => array(
+                'list_absen' => $list_tgl
+            ),
+            'metadata' => $meta
+        ];
+
+        $this->response($response, 200);
+    }
+
+    function persetujuan_post()
+    {
+        $this->verify_request();
+
+        $nik = $this->post('nik', true);
+
+        $this->verify_device($nik);
+
+        if ($nik == null || $nik == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'nik\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //cek admin
+        $is_admin = $this->main_model->select('users', '1', ['username' => $nik]);
+        if (!$is_admin) {
+            $response = [
+                'response' => [
+                    'message' => 'Anda bukan admin',
+                ],
+                'metadata' => [
+                    'message' => 'Anda bukan admin',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $id_absen = $this->post('id_absen', true);
+        if ($id_absen == null || $id_absen == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'id_absen\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'id_absen\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $absen = $this->main_model->select('absen', '*', ['id' => $id_absen]);
+        if (!$absen) {
+            $response = [
+                'response' => [
+                    'message' => 'Data absen tidak dapat ditemukan',
+                ],
+                'metadata' => [
+                    'message' => 'Data absen tidak dapat ditemukan',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        $status = $this->post('status', true);
+        if ($status == null || $status == "") {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'status\' tidak boleh kosong',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'status\' tidak boleh kosong',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        if ($status != 0 && $status != 1) {
+            $response = [
+                'response' => [
+                    'message' => 'Parameter \'status\' harus 1 atau 2',
+                ],
+                'metadata' => [
+                    'message' => 'Parameter \'status\' harus 1 atau 2',
+                    'code' => 400
+                ]
+            ];
+            $this->response($response, 200);
+            exit();
+        }
+
+        //update persetujuan
+        $update = $this->main_model->update('absen', ['id' => $id_absen], ['approved' => intval($status) ? 1 : 0]);
+        if($update){
+            $meta = [
+                'message' => 'Ok',
+                'code' => 200
+            ];
+        } else {
+            $meta = [
+                'message' => 'Gagal mengubah persetujuan absen',
+                'code' => 400
+            ];
+        }
+
+        $response = [
+            'response' => null,
             'metadata' => $meta
         ];
 
