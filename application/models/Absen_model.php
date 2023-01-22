@@ -401,4 +401,8 @@ class Absen_model extends CI_Model
             ) b 
             join pegawai p on b.id_pegawai=p.id")->result();
     }
+
+    function get_absen_belum_selesai($id_pegawai, $tanggal){
+        return $this->db->query("SELECT * from absen where id_pegawai='$id_pegawai' and tanggal='$tanggal' and jam_masuk is not null and jam_pulang is null")->row();
+    }
 }
