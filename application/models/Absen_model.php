@@ -142,7 +142,7 @@ class Absen_model extends CI_Model
         $distance = rad2deg($distance);
         $distance = $distance * 60 * 1.1515;
         $distance = $distance * 1.609344; //jarak dalam km
-        return ['distance'=> $distance * 1000, 'jarak' => round($distance*1000, 2)." meter / ". round($distance,2). " km", 'status' => ($distance <= $toleransi_jarak)];
+        return ['distance' => $distance * 1000, 'jarak' => round($distance * 1000, 2) . " meter / " . round($distance, 2) . " km", 'status' => ($distance <= $toleransi_jarak)];
     }
 
     function di_area_tambahan($lat, $lon)
@@ -313,13 +313,14 @@ class Absen_model extends CI_Model
         return $db->query("SELECT 1 from pegawai where tenaga >= 2 and unit_kerja ='13' and nip_baru='$nip'")->row();
     }
 
-    function get_lokasi_kerja($id_pegawai){
+    function get_lokasi_kerja($id_pegawai)
+    {
         return $this->db->select('lk.*')
-        ->from('lokasi_kerja lk')
-        ->join('lokasi_kerja_pegawai lkp', 'lkp.id_lokasi=lk.id')
-        ->where('id_pegawai', $id_pegawai)
-        ->where('lk.status', 1)
-        ->get()->result();
+            ->from('lokasi_kerja lk')
+            ->join('lokasi_kerja_pegawai lkp', 'lkp.id_lokasi=lk.id')
+            ->where('id_pegawai', $id_pegawai)
+            ->where('lk.status', 1)
+            ->get()->result();
     }
 
     function compress_image($source, $path)
@@ -330,13 +331,13 @@ class Absen_model extends CI_Model
         $info = getimagesize($source);
 
         if ($info['mime'] == 'image/jpeg')
-        $image = imagecreatefromjpeg($source);
+            $image = imagecreatefromjpeg($source);
 
         elseif ($info['mime'] == 'image/gif')
-        $image = imagecreatefromgif($source);
+            $image = imagecreatefromgif($source);
 
         elseif ($info['mime'] == 'image/png')
-        $image = imagecreatefrompng($source);
+            $image = imagecreatefrompng($source);
 
         $imagefilesize = filesize($source);
 
@@ -352,14 +353,22 @@ class Absen_model extends CI_Model
         return imagejpeg($image, $path, $quality);
     }
 
-    function dalam_waktu_absen($jenis_absen, $id_lokasi){
+    function dalam_waktu_absen($jenis_absen, $id_lokasi)
+    {
         $tanggal = date('Y-m-d');
         $waktu = date('H:i:s');
         $kol = $jenis_absen == 1 ? "masuk" : "pulang";
-        return $this->db->query("SELECT 1 from waktu_absen where id_lokasi='$id_lokasi' and tanggal <= '$tanggal' and ".$kol."_start >= '$waktu' and " . $kol . "_end <= '$waktu' order by tanggal desc limit 1")->row();
+
+        //sabtu pulang jam 12.30
+        if (date('w') == 6 && $jenis_absen == 2) {
+            return $waktu >= '12:30:00' && $waktu <= '13:30:00';
+        }
+        
+        return $this->db->query("SELECT 1 from waktu_absen where id_lokasi='$id_lokasi' and tanggal <= '$tanggal' and " . $kol . "_start >= '$waktu' and " . $kol . "_end <= '$waktu' order by tanggal desc limit 1")->row();
     }
 
-    function rekap_bulanan_pegawai($tahun, $bulan, $id_pegawai){
+    function rekap_bulanan_pegawai($tahun, $bulan, $id_pegawai)
+    {
         return $this->db->query("SELECT * FROM (
             SELECT '1' as jenis, c.dt as tanggal, c.dw, c.isWeekday, c.isHoliday, a.jam_masuk, a.jam_pulang, a.needs_approval, a.approved, date_format(a.tgl_pulang, '%d-%m-%Y') as tgl_pulang,
                         ifnull(time_to_sec(timediff(jam_pulang, jam_masuk)),0) total_waktu,
@@ -382,11 +391,13 @@ class Absen_model extends CI_Model
         return $hari[date('w', strtotime($tgl))];
     }
 
-    function get_tgl_persetujuan(){
+    function get_tgl_persetujuan()
+    {
         return $this->db->query("SELECT distinct tanggal from absen where needs_approval=1 and approved is null")->result();
     }
 
-    function get_butuh_persetujuan($tgl){
+    function get_butuh_persetujuan($tgl)
+    {
         return $this->db->query("SELECT b.*, nik, nama from 
             (SELECT date_format(c.dt, '%d-%m-%Y') as tanggal, c.dw, c.isWeekday, c.isHoliday, c.dt as date,
                 a.id_pegawai, a.jam_masuk as masuk, a.jam_pulang as keluar, a.foto_masuk, a.foto_pulang, 
@@ -402,7 +413,8 @@ class Absen_model extends CI_Model
             join pegawai p on b.id_pegawai=p.id")->result();
     }
 
-    function get_absen_belum_selesai($id_pegawai, $tanggal){
+    function get_absen_belum_selesai($id_pegawai, $tanggal)
+    {
         return $this->db->query("SELECT * from absen where id_pegawai='$id_pegawai' and tanggal='$tanggal' and jam_masuk is not null and jam_pulang is null")->row();
     }
 }
