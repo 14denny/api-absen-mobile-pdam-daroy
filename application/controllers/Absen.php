@@ -306,7 +306,7 @@ class Absen extends CI_Controller
                 'jenis' => $d->jenis,
                 'nama_jenis' => $d->jenis == 1 ? "Kantor" : "Kunjungan",
                 'masuk' => $d->jam_masuk ? date('H:i', strtotime($d->jam_masuk)) : '-',
-                'keluar' => $d->jam_pulang ? date('H:i', strtotime($d->jam_pulang)).($d->tgl_pulang ? " (". $d->tgl_pulang.")": '') : '-',
+                'keluar' => $d->jam_pulang ? date('H:i', strtotime($d->jam_pulang)) . ($d->tgl_pulang ? " (" . $d->tgl_pulang . ")" : '') : '-',
                 'tidak_lengkap' => !!$d->tidak_lengkap,
                 'terlambat' => !!$d->terlambat,
                 'tanpa_status' => !!$d->tanpa_status,
@@ -768,11 +768,11 @@ class Absen extends CI_Controller
 
         //cek absen belum selesai
         $absen = $this->absen_model->get_absen_belum_selesai($pegawai->id, $tanggal);
-        if(!$absen){
+        if (!$absen) {
             $response = [
                 'response' => null,
                 'metadata' => [
-                    'message' => 'Tidak ada absen yang belum selesai untuk tanggal '.date('d-m-Y', strtotime($tanggal)),
+                    'message' => 'Tidak ada absen yang belum selesai untuk tanggal ' . date('d-m-Y', strtotime($tanggal)),
                     'code' => 500
                 ]
             ];
@@ -1831,7 +1831,7 @@ class Absen extends CI_Controller
         }
 
         $pegawai = $this->main_model->select('pegawai', '*', ['nik' => $nik]);
-        if(!$pegawai){
+        if (!$pegawai) {
             $response = [
                 'response' => [
                     'message' => 'NIK Pegawai tidak dapat ditemukan',
@@ -1855,7 +1855,9 @@ class Absen extends CI_Controller
 
         $response = [
             'response' => array(
-                'ada_absen_belum_selesai' => !!$ada_absen_belum_selesai_kemarin
+                'ada_absen_belum_selesai' => !!$ada_absen_belum_selesai_kemarin,
+                'tanggal' => $ada_absen_belum_selesai_kemarin ? $ada_absen_belum_selesai_kemarin->tanggal : null,
+                'tanggal_display' => $ada_absen_belum_selesai_kemarin ? date('d-m-Y', strtotime($ada_absen_belum_selesai_kemarin->tanggal)) : null
             ),
             'metadata' => $meta
         ];
