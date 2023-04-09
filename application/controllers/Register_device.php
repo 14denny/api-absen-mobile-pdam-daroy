@@ -124,10 +124,10 @@ class Register_device extends CI_Controller
         if ($this->verify_model->nik_registered($nik, $version)) {
             $response = [
                 'response' => [
-                    'message' => 'Sudah ada NIK yang didaftarkan untuk perangkat ini',
+                    'message' => 'NIK ini sudah didaftarkan di perangkat lain',
                 ],
                 'metadata' => [
-                    'message' => 'Sudah ada NIK yang didaftarkan untuk perangkat ini',
+                    'message' => 'NIK ini sudah didaftarkan di perangkat lain',
                     'code' => 500
                 ]
             ];

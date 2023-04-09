@@ -565,6 +565,7 @@ $config['allowed_cors_headers'] = [
   'Authorization',
   'x-token',
   'x-appid',
+  'x-version',
 ];
 
 /*
